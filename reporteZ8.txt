@@ -1,0 +1,30 @@
+Numero Proximo Reporte Z: 8
+Fecha Ultimo Reporte Z: 00-00-2000
+Hora Ultimo Reporte Z: 00:00
+Numero Ultima Factura: 132
+Fecha Ultima Factura: 05-02-2021
+Hora Ultima Factura: 03:08
+Numero Ultima Nota de Debito: 5
+Numero Ultima Nota de Credito: 2
+Numero Ultimo Doc No Fiscal: 23
+Ventas Exento: 60312563.76
+Base Imponible Ventas IVA G: 2732251.76
+Impuesto IVA G: 437160.28
+Base Imponible Ventas IVA R: 0.0
+Impuesto IVA R: 0.0
+Base Imponible Ventas IVA A: 0.0
+Impuesto IVA A: 0.0
+Nota de Debito Exento: 0.0
+BI IVA G en Nota de Debito: 0.0
+Impuesto IVA G en Nota de Debito: 0.0
+BI IVA R en Nota de Debito: 0.0
+Impuesto IVA R en Nota de Debito: 0.0
+BI IVA A en Nota de Debito: 0.0
+Impuesto IVA A en Nota de Debito: 0.0
+Nota de Credito Exento: 0.0
+BI IVA G en Nota de Credito: 0.0
+Impuesto IVA G en Nota de Credito: 0.0
+BI IVA R en Nota de Credito: 0.0
+Impuesto IVA R en Nota de Credito: 0.0
+BI IVA A en Nota de Credito: 0.0
+Impuesto IVA A en Nota de Credito: 0.0

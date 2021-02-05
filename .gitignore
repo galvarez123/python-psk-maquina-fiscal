@@ -1,0 +1,7 @@
+# Created by galvarez
+
+# User-specific stuff
+.idea/
+__pycache__/
+build/
+dist/
