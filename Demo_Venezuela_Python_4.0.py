@@ -13,6 +13,8 @@ import Tfhka
 import serial
 import os
 
+
+
 class Principal(QMainWindow):
 
 
@@ -43,7 +45,7 @@ class Principal(QMainWindow):
 		self.btnZnumero_obt.clicked.connect(self.ObtZpornumero)
 		self.btnZfecha_obt.clicked.connect(self.ObtZporfecha)
 		self.btnListado.clicked.connect(self.leer_pedidos)
-		self.btnImprimir.clicked.connect(self.imprimir)
+		self.btnImprimir.clicked.connect(self.validar_Error)
 
 	def abrir_puerto(self):
 		self.txt_informacion.setText("")
@@ -85,39 +87,6 @@ class Principal(QMainWindow):
 	def estado_error(self):
 		self.txt_informacion.setText("")
 		self.estado = self.printer.ReadFpStatus()
-		estado = {
-			"0": "Estado desconocido.",
-			"1": "En modo prueba y en espera.",
-			"2": "En modo prueba y emisión de documentos fiscales.",
-			"3": "En modo prueba y emisión de documentos no fiscales.",
-			"4": "En modo fiscal y en espera.",
-			"5": "En modo fiscal y emisión de documentos fiscales.",
-			"6": "En modo fiscal y emisión de documentos no fiscales.",
-			"7": "En modo fiscal, cercana carga completa de la memoria fiscal y en espera.",
-			"8": "En modo fiscal, cercana carga completa de la memoria fiscal y en emisión de documentos fiscales.",
-			"9": "En modo fiscal, cercana carga completa de la memoria fiscal y en emisión de documentos no fiscales.",
-			"10": "En modo fiscal, carga completa de la memoria fiscal y en espera.",
-			"11": "En modo fiscal, carga completa de la memoria fiscal y en emisión de documentos fiscales.",
-			"12": "En modo fiscal, carga completa de la memoria fiscal y en emisión de documentos no fiscales."
-		}
-		error = {
-			"0": "No hay error.",
-			"1": "Fin en la entrega de papel.",
-			"2": "Error de índole mecánico en la entrega de papel.",
-			"3": "Fin en la entrega de papel y error mecánico.",
-			"80": "Comando inválido o valor inválido.",
-			"84": "Tasa inválida.",
-			"88": "No hay asignadas directivas.",
-			"92": "Comando invalido.",
-			"96": "Error fiscal.",
-			"100": "Error de la memoria fiscal.",
-			"108": "Memoria fiscal llena.",
-			"112": "Buffer completo. (debe enviar el comando de reinicio)",
-			"128": "Error en la comunicación.",
-			"137": "No hay respuesta.",
-			"144": "Error LRC.",
-			"145": "Error interno api.",
-			"153": "Error en la apertura del archivo."}
 		salida = "Estado: " + self.estado[0]
 		salida += "\n"+ estado.get(self.estado[0], "Desconocido")
 		salida += "\nError: " + self.estado[5]
@@ -125,10 +94,13 @@ class Principal(QMainWindow):
 		self.txt_informacion.setText(salida)
 
 	def leer_pedidos(self):
-		queryprov = "SELECT o.documento  ,trim(o.codcliente) , trim(o.contacto),trim( cast(o.totalfinal as DECIMAL(20,0))) " + \
-					"FROM psk_pf.orden o  left join psk_pf.factura f on f.tipodoc = 'FAC' " + \
-					"AND  o.documento = f.orden AND o.codcliente = f.codcliente  " + \
-					" WHERE   o.tipodoc ='PED' and f.documento is null order by o.documento "
+		queryprov = "SELECT o.documento  ,trim(o.codcliente) , trim(o.contacto),trim( cast(o.totalfinal as DECIMAL(20,0))) " +\
+					"FROM psk_pf.orden o  join psk_pf.orden_linea ol on " +\
+					"o.tipodoc = ol.tipodoc	and o.documento = ol.documento left join psk_pf.factura f on f.tipodoc = 'FAC' " + \
+					"AND  o.documento = f.orden AND o.codcliente = f.codcliente  " +\
+					" WHERE   o.tipodoc ='PED' and f.documento is null " +\
+					"	group by	o.documento ,	trim(o.codcliente) ,	trim(o.contacto),	o.totalfinal " +\
+					"order by o.documento "
 		codprov = connect.run_query(query=queryprov)
 		self.tablaRegistro.setRowCount(len(codprov)/4)
 		col = 0
@@ -150,9 +122,30 @@ class Principal(QMainWindow):
 			self.tablaRegistro.setItem(col, 3, monto)
 			col += 1
 
+
+	def validar_Error(self):
+		try:
+			self.estado = self.printer.ReadFpStatus()
+			errorvAR = self.estado[5]
+			estatusvAR = self.estado[0]
+			if errorvAR!="0":
+				salida = "Error: " + errorvAR
+				salida += "\n" + error.get(errorvAR, "Desconocido")
+				QMessageBox.about(self, "ERROR",  salida)
+			elif not(estatusvAR == "1" or estatusvAR == "4" or estatusvAR == "7"):
+				salida = "Estatus: " + estatusvAR
+				salida += "\n" + estado.get(estatusvAR, "Desconocido")
+				QMessageBox.about(self, "ERROR", salida)
+		except:
+			QMessageBox.about(self, "ERROR", "Impresora No Responde")
+		else:
+			self.imprimir()
+
+
 	def imprimir(self):
 		self.txt_informacion.setText("")
 		indexes = self.tablaRegistro.selectionModel().selectedRows()
+		print("seleccionado " + str(len(indexes)))
 		if len(indexes) > 0:
 			index = sorted(indexes)[0]
 			lista=list()
@@ -166,17 +159,18 @@ class Principal(QMainWindow):
 			self.imprimir_cabecera(datos_cabecera, documento, cliente, lista)
 			datos_lineas = self.leer_lineas(documento, cliente, lista)
 			self.imprimir_lineas(datos_lineas, documento, cliente, lista)
-			estado_s1 = self.printer.GetS1PrinterData()
-			newdocumento=str(estado_s1._lastInvoiceNumber).rjust(8, '0')
-			print(newdocumento)
+			while True:
+				estado_s1 = self.printer.GetS1PrinterData()
+				print("numero de documento: "+str(estado_s1._lastInvoiceNumber))
+				if estado_s1._lastInvoiceNumber!=0:
+					break
+			newdocumento = str(estado_s1._lastInvoiceNumber).rjust(8, '0')
 			query_update = "update psk_pf.factura_linea set   " + \
 					   " tipodoc = 'FAC' , documento = '" + newdocumento + \
-					   "' where tipodoc = 'PED' and documento = '" + documento + "' AND trim(proveedor) = '" + cliente + "' "
+					   "' where tipodoc = 'TRX' and documento = '" + documento + "' AND trim(proveedor) = '" + cliente + "' "
 			connect.run_query(query=query_update)
 			formatofechatabla = "%Y-%m-%d"
 			formatofechaimpresora = "%d-%m-%Y"
-
-
 			fecha = datetime.strptime(estado_s1._currentPrinterDate,formatofechaimpresora)
 			fecha = fecha.strftime(formatofechatabla)
 			hora = str(estado_s1._currentPrinterTime)
@@ -196,13 +190,23 @@ class Principal(QMainWindow):
 				"' , ultimopag = '" + str(fecha) + \
 				"' , horadocum = '" + str(hora) + \
 				"' , ampm = " + str(ampm) + \
-				" where tipodoc = 'PED' and documento = '" + documento + "' AND trim(codcliente) = '" + cliente + "' "
+				" where tipodoc = 'TRX' and documento = '" + documento + "' AND trim(codcliente) = '" + cliente + "' "
 			connect.run_query(query=query_update)
-			self.leer_pedidos()
+			selected = self.tablaRegistro.currentRow()
+			self.tablaRegistro.removeRow(selected)
+
+			QMessageBox.about(self, "OK", "Finalizado")
+		else:
+			print("nada seleccionado")
+			QMessageBox.about(self, "Ups", "no hay pedidos seleccionados")
+
 
 	def leer_cabecera(self, documento, cliente, salida):
-		query_cabecera = "SELECT TRIM(rif), TRIM(nombrecli), TRIM(direccion), TRIM(telefonos) , TRIM(nombre)  " + \
-					"FROM psk_pf.orden  g join almacene a on a.codigo =g.almacen WHERE   " + \
+		query_cabecera = "SELECT TRIM(rif), TRIM(nombrecli), " + \
+						 " coalesce( TRIM(direccion),'Sin Especificar'), "+ \
+						 " coalesce( TRIM(telefonos),'Sin Especificar') , "+ \
+						 "  coalesce( TRIM(nombre), 'Oficina Principal') " + \
+					"FROM psk_pf.orden  g  Left join almacene a on a.codigo =g.almacen WHERE   " + \
 					"tipodoc ='PED' and trim(documento) = '" + unicode(documento) + "' and trim(codcliente) = '" + unicode(cliente) + "' "
 		datoscliente = connect.run_query(query=query_cabecera)
 		print(datoscliente)
@@ -272,31 +276,40 @@ class Principal(QMainWindow):
 			salida.append(aux)
 
 			if (self.printer.SendCmd(str(aux))):
-				estado_s2 = self.printer.GetS2PrinterData()
-				base_linea = estado_s2._subTotalBases -base_acu
-				impuesto_linea = estado_s2._subTotalTax -impuesto_acu
+				while True:
+					estado_s2 = self.printer.GetS2PrinterData()
+					base_linea = estado_s2._subTotalBases -base_acu
+					impuesto_linea = estado_s2._subTotalTax -impuesto_acu
+					if base_linea > 0:
+						break
+					else:
+						print("base cero")
+				base_imponible_articulo = 0
 				if codigo_impuesto == " ":
 					exento += base_linea
 				else:
 					base_imponible += base_linea
+					base_imponible_articulo = base_linea
 				base_articulo = base_linea/cantidad
 				impuesto = impuesto_linea/cantidad
 
+
 				base_acu = estado_s2._subTotalBases
 				impuesto_acu = estado_s2._subTotalTax
-				query_update = "update psk_pf.factura_linea set   " + \
-							   "preciounit = "+ str(base_articulo) + " , preciofin = "+str(base_articulo) +" ," + \
-							   "preciooriginal = " + str(base_articulo) + " , montoneto = " + str(base_linea) + " ," + \
-							   "montototal = " + str(base_linea) + " " + \
+				query_update = "update psk_pf.factura_linea set   preciooriginal = preciounit ," + \
+							   "preciounit = "+ str(base_articulo) + " , preciofin = "+str(base_articulo) +" , " + \
+							   " montoneto = " + str(base_linea) + " , " + \
+							   "impuesto1 = " + str(impuesto) + " , baseimpo1 = " + str(base_imponible_articulo) + " , " + \
+							   "montototal = " + str( base_linea + impuesto) + " , tipodoc ='TRX' " + \
 							   " where tipodoc = 'PED' and documento = '" + documento + "' AND trim(proveedor) = '" + cliente +\
 								"' and codigo = '" +datos_articulos[x+4].encode('latin1')+"'"
 				connect.run_query(query=query_update)
 		query_update = "update psk_pf.factura set   " + \
 					   "totbruto = " + str(base_acu) + " , totneto = " + str(base_acu) + " ," + \
 					   "totimpuest = " + str(impuesto_acu) + " , impuesto1 = " + str(impuesto_acu) + " , impuesto2 = " + str(impuesto_acu) + " ," + \
-					   "totalfinal = " + str(base_acu+impuesto_acu) + " " + \
+					   "totalfinal = " + str(base_acu+impuesto_acu) + ", totpagos = " + str(base_acu + impuesto_acu) + " " + \
 					   ", sinimpuest = " + str(exento) + " " + \
-					   ", baseimpo1 = " + str(base_imponible) + " " + \
+					   ", baseimpo1 = " + str(base_imponible) + " , tipodoc ='TRX' " + \
 					   " where tipodoc = 'PED' and documento = '" + documento + "' AND trim(codcliente) = '" + cliente + "' "
 
 		connect.run_query(query=query_update)
@@ -711,6 +724,42 @@ class Principal(QMainWindow):
 			salida+= "\nImpuesto IVA A en Nota de Credito: "+ str(reportes[NR]._additionalRateTaxDevolution)+"\n"+"\n"
 			print(salida)
 		self.txt_informacion.setText(Enc+salida)
+
+error = {
+		"0": "No hay error.",
+		"1": "Fin en la entrega de papel.",
+		"2": "Error de índole mecánico en la entrega de papel.",
+		"3": "Fin en la entrega de papel y error mecánico.",
+		"80": "Comando inválido o valor inválido.",
+		"84": "Tasa inválida.",
+		"88": "No hay asignadas directivas.",
+		"92": "Comando invalido.",
+		"96": "Error fiscal.",
+		"100": "Error de la memoria fiscal.",
+		"108": "Memoria fiscal llena.",
+		"112": "Buffer completo. (debe enviar el comando de reinicio)",
+		"128": "Error en la comunicación.",
+		"137": "No hay respuesta.",
+		"144": "Error LRC.",
+		"145": "Error interno api.",
+		"153": "Error en la apertura del archivo."}
+
+estado = {
+		"0": "Estado desconocido.",
+		"1": "En modo prueba y en espera.",
+		"2": "En modo prueba y emisión de documentos fiscales.",
+		"3": "En modo prueba y emisión de documentos no fiscales.",
+		"4": "En modo fiscal y en espera.",
+		"5": "En modo fiscal y emisión de documentos fiscales.",
+		"6": "En modo fiscal y emisión de documentos no fiscales.",
+		"7": "En modo fiscal, cercana carga completa de la memoria fiscal y en espera.",
+		"8": "En modo fiscal, cercana carga completa de la memoria fiscal y en emisión de documentos fiscales.",
+		"9": "En modo fiscal, cercana carga completa de la memoria fiscal y en emisión de documentos no fiscales.",
+		"10": "En modo fiscal, carga completa de la memoria fiscal y en espera.",
+		"11": "En modo fiscal, carga completa de la memoria fiscal y en emisión de documentos fiscales.",
+		"12": "En modo fiscal, carga completa de la memoria fiscal y en emisión de documentos no fiscales."
+	}
+
 
 if __name__ == "__main__":
 	app = QApplication(sys.argv)
