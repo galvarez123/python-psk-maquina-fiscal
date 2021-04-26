@@ -1,4 +1,4 @@
-import mysql.connector as pymysql
+import mysql.connector as connection
 import configparser as parser
 #from pathlib import Path
 import os
@@ -20,11 +20,13 @@ print(DB_NAME)
 def run_query(query):
     logging.info(query)
     print(query)
-    conn = pymysql.connect(user=DB_USER, password=DB_PASS, host=DB_HOST, database=DB_NAME,
-                           charset='latin1',
-                           use_unicode=True
+    conn = connection.MySQLConnection(user=DB_USER, password=DB_PASS, host=DB_HOST, database=DB_NAME,
+                           charset='latin1',                           use_unicode=True
+
                            )  # Conectar a la base de datos
+    #encode = "utf-8"
     cursor = conn.cursor()  # Crear un cursor
+
     cursor.execute(query)  # Ejecutar una consulta
     if query.upper().startswith('SELECT'):
         data = ()
@@ -46,5 +48,5 @@ def run_query(query):
 def get_conection():
 
 
-    conn = pymysql.connect(user= DB_USER , password = DB_PASS , host=DB_HOST  ,database=DB_NAME )  # Conectar a la base de datos
+    conn = connection.MySQLConnection(user= DB_USER , password = DB_PASS , host=DB_HOST  ,database=DB_NAME )  # Conectar a la base de datos
     return conn
