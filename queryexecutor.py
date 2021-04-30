@@ -19,14 +19,13 @@ print(DB_NAME)
 
 def run_query(query):
     logging.info(query)
-    print(query)
+    #print(query)
     conn = connection.MySQLConnection(user=DB_USER, password=DB_PASS, host=DB_HOST, database=DB_NAME,
                            charset='latin1',                           use_unicode=True
 
                            )  # Conectar a la base de datos
     #encode = "utf-8"
     cursor = conn.cursor()  # Crear un cursor
-
     cursor.execute(query)  # Ejecutar una consulta
     if query.upper().startswith('SELECT'):
         data = ()
@@ -40,6 +39,7 @@ def run_query(query):
     cursor.close()
     conn.close()
     print(data)
+    logging.info(str(data))
     return data
 
 
