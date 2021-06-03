@@ -438,7 +438,9 @@ class Principal(QMainWindow):
         salida.append("\nDireccion: " + datoscliente[2].encode('utf-8'))
         salida.append("\nTelefono: " + datoscliente[3].encode('latin1'))
         salida.append("\nCAJERO:" + datoscliente[4].encode('latin1'))
-        config.logging.info("\nRif: " + datoscliente[0].encode('latin1')+"\nRazon Social: " + datoscliente[1].encode('latin1')+"\nDireccion: " + datoscliente[2].encode('utf-8')+"\nTelefono: " + datoscliente[3].encode('latin1')+"\nCAJERO:" + datoscliente[4].encode('latin1'))
+        if tipo == 'PED':
+            salida.append("\nPedido:" + str(documento))
+        config.logging.info("\nRif: " + datoscliente[0].encode('latin1')+"\nRazon Social: " + datoscliente[1].encode('latin1')+"\nDireccion: " + datoscliente[2].encode('utf-8')+"\nTelefono: " + datoscliente[3].encode('latin1')+"\nCAJERO:" + datoscliente[4].encode('latin1')+ "\nPedido:" + str(documento ))
         return datoscliente
 
     def imprimir_cabecera(self, datoscliente, documento, cliente, salida, tipodoc):
@@ -449,11 +451,10 @@ class Principal(QMainWindow):
                     self.printer.SendCmd(str("iD*" + str(datoscliente[x + 6]).encode('latin1')))
                     self.printer.SendCmd(str("iI*" + str(datoscliente[x + 7]).encode('latin1')))
                 self.printer.SendCmd(str("iR*" + datoscliente[x].encode('latin1')))
-                #salida.append("Rif: " + datoscliente[x].encode('latin1'))
                 self.printer.SendCmd(str("iS*" + datoscliente[x + 1].encode('latin1')))
-                #salida.append("Razon Social: " + datoscliente[x + 1].encode('latin1'))
 
-                dir = "Direccion: " + datoscliente[x + 2].encode('utf-8')
+
+                dir = "DIRECCION: " + datoscliente[x + 2].encode('utf-8')
                 #salida.append(dir)
                 linea = 0
                 maxlen = 40
@@ -465,11 +466,12 @@ class Principal(QMainWindow):
                         dir = dir[maxlen:]
                     else:
                         break
-                self.printer.SendCmd(str("i0" + str(linea) + "Telefono: " + datoscliente[x + 3].encode('latin1')))
-                #salida.append("Telefono: " + datoscliente[x + 3].encode('latin1'))
+                self.printer.SendCmd(str("i0" + str(linea) + "TELEFONO: " + datoscliente[x + 3].encode('latin1')))
                 linea += 1
-                self.printer.SendCmd(str("i0" + str(linea) + "CAJERO:" + datoscliente[x + 4].encode('latin1')))
-                #salida.append("CAJERO:" + datoscliente[x + 4].encode('latin1'))
+                self.printer.SendCmd(str("i0" + str(linea) + "CAJERO: " + datoscliente[x + 4].encode('latin1')))
+                linea += 1
+                if tipodoc == 'PED':
+                    self.printer.SendCmd(str("i0" + str(linea) + "PEDIDO: " + str(documento)))
         except Exception, e:
             config.logging.info("Error al totalizar Documento "+str(e))
             self.txt_informacion.setText("Error al totalizar Documento")
@@ -540,11 +542,12 @@ class Principal(QMainWindow):
                     else:
                         print("base cero")
                 base_imponible_articulo = 0
-                if codigo_impuesto == " ":
+                if datos_articulos[x] == 0:
                     exento += base_linea
                 else:
                     base_imponible += base_linea
                     base_imponible_articulo = base_linea
+
                 base_articulo = base_linea / cantidad
                 impuesto = impuesto_linea / cantidad
 
@@ -560,7 +563,7 @@ class Principal(QMainWindow):
             else:
                 config.logging.info("rechazado  " + str(aux))
 
-        query_update = " insert into psk_pf.factura select id_empresa ,agencia ,'TRX' ,subtipodoc ,moneda ,documento ,codcliente ,nombrecli ,contacto ,comprador ,rif ,nit ,direccion ,telefonos ,tipoprecio ,orden ,emision ,recepcion ,vence ,ult_interes ,fechacrea ,totcosto ,totcomi ," + str(base_acu) + " ," + str(base_acu) + " ," + str( base_acu + impuesto_acu) + " , " + str(base_acu + impuesto_acu) + " ," + str(impuesto_acu) + " ,totdescuen ," + str(                impuesto_acu) + " , " + str(impuesto_acu) + " ,impuesto3 ,impuesto4 ,impuesto5 ,impuesto6 ,recargos ,dsctoend1 ,dsctoend2 ,dsctolinea ,notas ,estatusdoc ,ultimopag ,diascred ,vendedor ,factorcamb ,multi_div ,factorreferencial ,fechanul ,uanulador ,uemisor ,estacion ," + str(exento) + " ,almacen ,sector ,formafis ,al_libro ,codigoret ,retencion ,aux1 ,aux2 ,aplicadoa , '"+str(tipodoc)+str(documento) +"' ,refmanual ,doc_class_id ,operac ,motanul ,seimporto ,dbcr ,horadocum ,ampm ,tranferido ,procedecre ,entregado ,vuelto ,integrado ,escredito ,seq_nodo ,tipo_nc ,porbackord ,chequedev ,ordentrab ,compcont ,planillacob ,nodoremoto ,turno ,codvend_a ,codvend_b ,codvend_c ,codvend_d , " + str(base_imponible) + " ,baseimpo2 ,baseimpo3 ,iddocumento ,imp_nacional ,imp_producc ,retencioniva ,fechayhora ,tipopersona ,idvalidacion ,nosujeto ,serialprintf ,documentofiscal ,numeroz ,ubica ,usa_despacho ,despachador ,despacho_nro ,checkin ,nureserva ,grandocnum ,agenciant ,tipodocant ,documant ,uemisorant ,estacioant ,emisionant ,fchyhrant ,frog ,apa_nc ,documentolocal ,comanda_movil ,comanda_kmonitor ,para_llevar ,notimbrar ,antipo ,antdoc ,xrequest ,xresponse ,parcialidad ,cedcompra ,subcodigo ,cprefijoserie ,contingencia ,precta_movil ,tipodocfiscal ,cprefijodeserie ,cserie ,serieincluyeimpuesto ,serieauto ,opemail ,refmanual2 ,baseimpo4 ,baseimpo5 ,baseimpo6 from psk_pf.factura "+\
+        query_update = " insert into psk_pf.factura select id_empresa ,agencia ,'TRX' ,subtipodoc ,moneda ,documento ,codcliente ,nombrecli ,contacto ,comprador ,rif ,nit ,direccion ,telefonos ,tipoprecio ,orden ,emision ,recepcion ,vence ,ult_interes ,fechacrea ,totcosto ,totcomi ," + str(base_acu) + " ," + str(base_acu) + " ," + str( base_acu + impuesto_acu) + " , " + str(base_acu + impuesto_acu) + " ," + str(impuesto_acu) + " ,totdescuen ," + str(impuesto_acu) + " , " + str(impuesto_acu) + " ,impuesto3 ,impuesto4 ,impuesto5 ,impuesto6 ,recargos ,dsctoend1 ,dsctoend2 ,dsctolinea ,notas ,estatusdoc ,ultimopag ,diascred ,vendedor ,factorcamb ,multi_div ,factorreferencial ,fechanul ,uanulador ,uemisor ,estacion ," + str(exento) + " ,almacen ,sector ,formafis ,al_libro ,codigoret ,retencion ,aux1 ,aux2 ,aplicadoa , '"+str(tipodoc)+str(documento) +"' ,refmanual ,doc_class_id ,operac ,motanul ,seimporto ,dbcr ,horadocum ,ampm ,tranferido ,procedecre ,entregado ,vuelto ,integrado ,escredito ,seq_nodo ,tipo_nc ,porbackord ,chequedev ,ordentrab ,compcont ,planillacob ,nodoremoto ,turno ,codvend_a ,codvend_b ,codvend_c ,codvend_d , " + str(base_imponible) + " ,baseimpo2 ,baseimpo3 ,iddocumento ,imp_nacional ,imp_producc ,retencioniva ,fechayhora ,tipopersona ,idvalidacion ,nosujeto ,serialprintf ,documentofiscal ,numeroz ,ubica ,usa_despacho ,despachador ,despacho_nro ,checkin ,nureserva ,grandocnum ,agenciant ,tipodocant ,documant ,uemisorant ,estacioant ,emisionant ,fchyhrant ,frog ,apa_nc ,documentolocal ,comanda_movil ,comanda_kmonitor ,para_llevar ,notimbrar ,antipo ,antdoc ,xrequest ,xresponse ,parcialidad ,cedcompra ,subcodigo ,cprefijoserie ,contingencia ,precta_movil ,tipodocfiscal ,cprefijodeserie ,cserie ,serieincluyeimpuesto ,serieauto ,opemail ,refmanual2 ,baseimpo4 ,baseimpo5 ,baseimpo6 from psk_pf.factura "+\
                        " where tipodoc = '" + tipodoc + "' and documento = '" + documento + "' AND trim(codcliente) = '" + cliente + "' "
 
         cantidadArticuloProcesado = connect.run_query(query=query_update)
@@ -933,7 +936,7 @@ class Principal(QMainWindow):
             ,
             "FAC": "select	F.documento ,	trim(F.codcliente) ,	trim(F.contacto), cast(f.totalfinal as DECIMAL(20, 2)) , f.tipodoc " +
                    " from	psk_pf.factura f join psk_pf.factura_linea fl on	f.tipodoc = fl.tipodoc	and f.documento = fl.documento " +
-                   " where	F.tipodoc = 'FAC' and f.estatusdoc !=3 and f.emision > CURDATE() - " + config.dias +
+                   " where	F.tipodoc = 'FAC' and f.estatusdoc !=3 and f.emision > ADDDATE( CURDATE() , INTERVAL - " + config.dias +")"+
                    " group by	f.documento ,	trim(f.codcliente) ,	trim(f.contacto),	f.totalfinal " +
                    " order by	f.documento "
         }
