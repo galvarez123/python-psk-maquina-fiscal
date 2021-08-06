@@ -376,10 +376,23 @@ class Principal(QMainWindow):
 
     def getTipoDoc(self):
         tipo_documentos = {0: 'ERR', 1: 'FAC', 2: 'N/C', 3: 'N/D'}
-        estado_s2 = self.printer.GetS2PrinterData()
-        typedoc = estado_s2.TypeDocument()
-        tipodoc = tipo_documentos.get(int(typedoc), 'ERR')
-        return tipodoc
+        #TODO
+        count = 0
+        while True:
+            estado_s2 = self.printer.GetS2PrinterData()
+            typedoc = estado_s2.TypeDocument()
+            tipodoc = tipo_documentos.get(int(typedoc), 'ERR')
+
+            if count > 5:
+                self.txt_informacion.setText("Error Reporte a Sistemas")
+                QMessageBox.about(self, "OK", "Error Reporte a Sistemas")
+                config.logging.error("FUNCION getTipoDoc Ciclo infinito")
+                return tipodoc
+            if typedoc != 0:
+                return tipodoc
+            count += 1
+
+
 
     def totalizar_factura(self, cliente, documento, tipodoc):
         try:
@@ -479,7 +492,7 @@ class Principal(QMainWindow):
             print str(e)
 
     def leer_lineas(self, documento, cliente,  tipo,  salida):
-        total =0
+        total = 0
         query_lineas = "SELECT a.impuesto1,g.preciooriginal ,cantidad, trim(g.nombre) ,TRIM(G.CODIGO) " + \
                        "FROM psk_pf.factura_linea  g join adminpurofm.articulo a on a.codigo =g.codigo  WHERE   " + \
                        "tipodoc ='"+tipo+"' and trim(documento) = '" + documento + "' and trim(proveedor) = '" + cliente + "' "
@@ -514,12 +527,21 @@ class Principal(QMainWindow):
 
             precio = datos_articulos[x + 1]
             precio = round(precio, 2)
+            if precio == 0:
+                precio = 1
             precio_entero = str(int(precio))
             precio_decimal = str(int((precio % 1) * 100))
+
+
             precio_entero = precio_entero.rjust(14, '0')
+
+
+
             precio_decimal = precio_decimal.rjust(2, '0')
 
             cantidad = datos_articulos[x + 2]
+            if cantidad == 0:
+                continue
             cantidad = round(cantidad, 3)
             cantidad_entero = str(int(cantidad))
             cantidad_decimal = str(int((cantidad % 1) * 1000))
@@ -927,11 +949,12 @@ class Principal(QMainWindow):
         query = {
             "PED": "SELECT o.documento  ,trim(o.codcliente) , trim(o.contacto), cast(o.totalfinal as DECIMAL(20,2)), o.tipodoc " +
                    "FROM psk_pf.factura o  join psk_pf.factura_linea ol on " +
-                   "o.tipodoc = ol.tipodoc	and o.documento = ol.documento left join psk_pf.factura f on f.tipodoc = 'FAC' " +
-                   "AND  o.documento = f.orden AND o.codcliente = f.codcliente  " +
+                   " o.tipodoc = ol.tipodoc	and o.documento = ol.documento and o.codcliente = ol.proveedor "
+                   " left join psk_pf.factura f on f.tipodoc in ( 'FAC' ,'ERR') " +
+                   " AND  o.documento = f.orden AND o.codcliente = f.codcliente  and f.estatusdoc !=3  " +
                    " WHERE   o.tipodoc ='PED' and f.documento is null and o.estatusdoc !=3 " +
-                   "	group by	o.documento ,	trim(o.codcliente) ,	trim(o.contacto),	o.totalfinal " +
-                   "order by o.documento "
+                   " group by	o.documento ,	trim(o.codcliente) ,	trim(o.contacto),	o.totalfinal " +
+                   " order by o.documento "
 
             ,
             "FAC": "select	F.documento ,	trim(F.codcliente) ,	trim(F.contacto), cast(f.totalfinal as DECIMAL(20, 2)) , f.tipodoc " +
